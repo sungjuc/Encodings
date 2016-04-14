@@ -11,7 +11,7 @@ struct VarintCodec : public common::Codec<T> {
 	uint64_t Encode(uint8_t *begin, const T &value) {
 		T val = value;
 		uint8_t *ptr = begin;
-		while (val > 0x80) {
+		while (val > 0x7F) {
 			*ptr++ = static_cast<uint8_t>(val & 0x7F) | uint8_t(0x80);
 			val >>= 7;
 		}
