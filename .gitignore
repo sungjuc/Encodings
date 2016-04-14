@@ -1,4 +1,5 @@
-CMakefiles
+CMakeFiles
 CMakeCache.txt
 Makefile
 cmake_install.cmake
+.idea

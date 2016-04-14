@@ -1,2 +1,2 @@
-# Encodings
+# encodings
 Various integer encoding test
