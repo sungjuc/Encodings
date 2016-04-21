@@ -3,8 +3,8 @@
 #include <array>
 #include "../common/common.h"
 
-#ifndef VARINT_GROUPVARINT_H_
-#define VARINT_GROUPVARINT_H_
+#ifndef ENCODINGS_GROUPVARIN_H
+#define ENCODINGS_GROUPVARIN_H
 
 namespace groupvarint {
 const uint8_t kGroupSize = 4;
@@ -63,4 +63,4 @@ private:
 };
 }  // end namespace groupvarint
 
-#endif  // VARINT_GROUPVARINT_H_
+#endif  // ENCODINGS_GROUPVARIN_H

@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#ifndef COMMON_COMMON_H_
-#define COMMON_COMMON_H_
+#ifndef ENCODINGS_COMMON_H
+#define ENCODINGS_COMMON_H
 namespace common {
 template<typename T>
 struct Codec {
@@ -13,4 +13,4 @@ struct Codec {
 };
 }  // end namespace common
 
-#endif  //  COMMON_COMMON_H_
+#endif  //  ENCODINGS_COMMON_H

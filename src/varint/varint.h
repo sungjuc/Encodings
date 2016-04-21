@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include "../common/common.h"
 
-#ifndef VARINT_VARINT_H_
-#define VARINT_VARINT_H_
+#ifndef ENCODINGS_VARINT_H_
+#define ENCODINGS_VARINT_H_
 
 namespace varint {
 
@@ -29,4 +29,4 @@ struct VarintCodec : public common::Codec<T> {
 
 }  // end namespace varint
 
-#endif  //  VARINT_VARINT_H_
+#endif  //  ENCODINGS_VARINT_H_
