@@ -1,9 +1,11 @@
 #include <stdint.h>
 #include "../common/common.h"
+#include "../common/types.h"
 
 #ifndef ENCODINGS_VARINT_H_
 #define ENCODINGS_VARINT_H_
 
+namespace encodings {
 namespace varint {
 
 template<typename T = uint64_t>
@@ -27,6 +29,30 @@ struct VarintCodec : public common::Codec<T> {
 	}
 };
 
+struct EdgeVarintCodec {
+	VarintCodec<common::Id> codec;
+
+	uint64_t Encode(uint8_t *begin, const common::EdgeWithId &edge) {
+		uint64_t offset = 0;
+		for (common::Id linkage : edge.link.linkages) {
+			offset += codec.Encode(begin + offset, linkage);
+		}
+		offset += codec.Encode(begin + offset, edge.id);
+		return offset;
+	}
+
+	uint64_t Decode(uint8_t *begin, common::EdgeWithId *edge) {
+		uint64_t offset = 0;
+		for (uint8_t i = 0; i <= common::kObject; ++i) {
+			offset += codec.Decode(begin + offset, &(edge->link.linkages[i]));
+		}
+
+		offset += codec.Decode(begin + offset, &(edge->id));
+		return offset;
+	}
+};
+
 }  // end namespace varint
+}  // end namespace encodings
 
 #endif  //  ENCODINGS_VARINT_H_

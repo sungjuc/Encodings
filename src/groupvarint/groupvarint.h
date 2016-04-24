@@ -5,7 +5,7 @@
 
 #ifndef ENCODINGS_GROUPVARIN_H
 #define ENCODINGS_GROUPVARIN_H
-
+namespace encodings {
 namespace groupvarint {
 const uint8_t kGroupSize = 4;
 const uint64_t kMask[kGroupSize] = {0xffff, 0xffffff, 0xffffffff, 0xffffffffffULL};
@@ -61,6 +61,38 @@ private:
 		return --num_bytes;
 	}
 };
+
+struct EdgeGroupVarintCodec {
+	GroupVarintCodec<std::array<common::Id, kGroupSize> > codec;
+
+	uint64_t Encode(uint8_t *begin, const common::EdgeWithId &edge) {
+		std::array<common::Id, kGroupSize> data;
+		for (uint8_t i = 0; i < common::kNLinkages; ++i) {
+			data[i] = edge.link.linkages[i];
+		}
+
+		data[common::kNLinkages] = edge.id;
+		uint64_t offset = 0;
+
+		offset += codec.Encode(begin + offset, data);
+		return offset;
+	}
+
+	uint64_t Decode(uint8_t *begin, common::EdgeWithId *edge) {
+		uint64_t offset = 0;
+		std::array<common::Id, kGroupSize> result;
+
+		offset += codec.Decode(begin + offset, &(result));
+
+		for (uint8_t i = 0; i < common::kNLinkages; ++i) {
+			edge->link.linkages[i] = result[i];
+		}
+
+		edge->link.linkages[common::kNLinkages] = result[common::kNLinkages];
+		return offset;
+	}
+};
 }  // end namespace groupvarint
+}  // end namespace encodings
 
 #endif  // ENCODINGS_GROUPVARIN_H
