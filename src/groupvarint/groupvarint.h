@@ -41,9 +41,7 @@ public:
 
 		for (uint8_t i = 0; i < kGroupSize; i++) {
 			num_bytes = (tag >> ((kGroupSize - (i + 1)) * 2)) & 3;
-			uint8_t val[8];
-			std::memcpy(&val, ptr, sizeof(uint64_t));
-			uint64_t dval = *(reinterpret_cast<uint64_t *>(&val)) & kMask[num_bytes];
+			uint64_t dval = *reinterpret_cast<const uint64_t *>(ptr) & kMask[num_bytes];
 			value->at(i) = dval;
 			ptr += num_bytes + kMinBytes;
 		}
@@ -63,8 +61,7 @@ private:
 };
 
 struct EdgeGroupVarintCodec {
-	GroupVarintCodec<std::array<common::Id, kGroupSize> > codec;
-
+	GroupVarintCodec<std::array<uint64_t, kGroupSize> > codec;
 	uint64_t Encode(uint8_t *begin, const common::EdgeWithId &edge) {
 		std::array<common::Id, kGroupSize> data;
 		for (uint8_t i = 0; i < common::kNLinkages; ++i) {
@@ -79,17 +76,85 @@ struct EdgeGroupVarintCodec {
 	}
 
 	uint64_t Decode(uint8_t *begin, common::EdgeWithId *edge) {
-		uint64_t offset = 0;
-		std::array<common::Id, kGroupSize> result;
+		uint8_t *ptr = begin;
+		uint8_t num_bytes;
+		uint8_t tag = *ptr++;
 
-		offset += codec.Decode(begin + offset, &(result));
-
-		for (uint8_t i = 0; i < common::kNLinkages; ++i) {
-			edge->link.linkages[i] = result[i];
+		for (uint8_t i = 0; i < kGroupSize - 1; i++) {
+			num_bytes = (tag >> ((kGroupSize - (i + 1)) * 2)) & 3;
+			edge->link.linkages[i] = *reinterpret_cast<uint64_t *>(ptr) & kMask[num_bytes];
+			ptr += num_bytes + kMinBytes;
 		}
 
-		edge->link.linkages[common::kNLinkages] = result[common::kNLinkages];
-		return offset;
+		num_bytes = tag & 3;
+		edge->id = *reinterpret_cast<uint64_t *>(ptr) & kMask[num_bytes];
+		ptr += num_bytes + kMinBytes;
+
+		return ptr - begin;
+	}
+};
+
+struct EdgeGroupVarintDeltaCompressionCodec {
+	EdgeGroupVarintCodec codec;
+
+	uint64_t Encode(uint8_t *begin, const common::EdgeWithId &edge) {
+		uint8_t *ptr = begin;
+		common::EdgeWithId new_edge;
+		uint8_t compression_tag = 0;
+
+		common::Id subject = edge.link.GetLinkage(common::kSubject);
+		common::Id predicate = edge.link.GetLinkage(common::kPredicate);
+		common::Id object = edge.link.GetLinkage(common::kObject);
+
+		new_edge.link.linkages = edge.link.linkages;
+		if (predicate > subject) {
+			compression_tag |= 0b00010000;
+			new_edge.link.linkages[common::kPredicate] = predicate - subject;
+		}
+
+		if (object > predicate) {
+			compression_tag |= 0b00001000;
+			new_edge.link.linkages[common::kObject] = object - predicate;
+		} else if (object > subject) {
+			compression_tag |= 0b00000100;
+			new_edge.link.linkages[common::kObject] = object - subject;
+		}
+
+		if (compression_tag == 0) {
+			compression_tag |= 0b00000001;
+			new_edge.id = edge.id - subject;
+		} else {
+			if (object > predicate) {
+				compression_tag |= 0b00000011;
+				new_edge.id = edge.id - object;
+			} else {
+				compression_tag |= 0b00000010;
+				new_edge.id = edge.id - predicate;
+			}
+		}
+
+		*ptr++ = compression_tag;
+		ptr += codec.Encode(ptr, new_edge);
+
+		return ptr - begin;
+	}
+
+	uint64_t Decode(uint8_t *begin, common::EdgeWithId *edge) {
+		uint8_t *ptr = begin;
+		uint8_t num_bytes;
+		uint8_t tag = *ptr++;
+
+		for (uint8_t i = 0; i < kGroupSize - 1; i++) {
+			num_bytes = (tag >> ((kGroupSize - (i + 1)) * 2)) & 3;
+			edge->link.linkages[i] = *reinterpret_cast<uint64_t *>(ptr) & kMask[num_bytes];
+			ptr += num_bytes + kMinBytes;
+		}
+
+		num_bytes = tag & 3;
+		edge->id = *reinterpret_cast<uint64_t *>(ptr) & kMask[num_bytes];
+		ptr += num_bytes + kMinBytes;
+
+		return ptr - begin;
 	}
 };
 }  // end namespace groupvarint

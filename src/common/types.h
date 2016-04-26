@@ -26,7 +26,7 @@ struct Link {
 		linkages[kObject] = object;
 	};
 
-	const Id GetLinkage(Linkage linkage) {
+	Id GetLinkage(Linkage linkage) const {
 		return linkages[linkage];
 	}
 
