@@ -26,8 +26,7 @@ public:
 		*ptr++ = (num_bytes[0] << 6) | (num_bytes[1] << 4) | (num_bytes[2] << 2) | num_bytes[3];
 
 		for (uint8_t i = 0; i < kGroupSize; i++) {
-			uint64_t value_to_encode = value[i];
-			std::memcpy(ptr, &value_to_encode, num_bytes[i] + kMinBytes);
+			std::memcpy(ptr, &value[i], num_bytes[i] + kMinBytes);
 			ptr += num_bytes[i] + kMinBytes;
 		}
 
@@ -72,6 +71,7 @@ struct EdgeGroupVarintCodec {
 		uint64_t offset = 0;
 
 		offset += codec.Encode(begin + offset, data);
+
 		return offset;
 	}
 
@@ -123,7 +123,7 @@ struct EdgeGroupVarintDeltaCompressionCodec {
 		if (compression_tag == 0) {
 			compression_tag |= 0b00000001;
 			new_edge.id = edge.id - subject;
-		} else {
+		} else if (subject < object || subject < predicate) {
 			if (object > predicate) {
 				compression_tag |= 0b00000011;
 				new_edge.id = edge.id - object;
@@ -141,18 +141,35 @@ struct EdgeGroupVarintDeltaCompressionCodec {
 
 	uint64_t Decode(uint8_t *begin, common::EdgeWithId *edge) {
 		uint8_t *ptr = begin;
-		uint8_t num_bytes;
-		uint8_t tag = *ptr++;
+		uint64_t num_bytes;
+		uint8_t compression_tag = *ptr++;
 
-		for (uint8_t i = 0; i < kGroupSize - 1; i++) {
-			num_bytes = (tag >> ((kGroupSize - (i + 1)) * 2)) & 3;
-			edge->link.linkages[i] = *reinterpret_cast<uint64_t *>(ptr) & kMask[num_bytes];
-			ptr += num_bytes + kMinBytes;
+		ptr += codec.Decode(ptr, edge);
+
+
+		if (compression_tag & 0b00110000) {
+			edge->link.linkages[common::kPredicate] += edge->link.GetLinkage(common::kSubject);
 		}
 
-		num_bytes = tag & 3;
-		edge->id = *reinterpret_cast<uint64_t *>(ptr) & kMask[num_bytes];
-		ptr += num_bytes + kMinBytes;
+		if (compression_tag & 0b00001000) {
+			edge->link.linkages[common::kObject] += edge->link.GetLinkage(common::kPredicate);
+		}
+
+		if (compression_tag & 0b00000100) {
+			edge->link.linkages[common::kObject] += edge->link.GetLinkage(common::kSubject);
+		}
+
+		if (compression_tag & 0b00000001) {
+			edge->id += edge->link.GetLinkage(common::kSubject);
+		} else 	if (compression_tag & 0b00000011) {
+			edge->id += edge->link.GetLinkage(common::kObject);
+		}
+
+		if (compression_tag & 0b00000010) {
+			edge->id += edge->link.GetLinkage(common::kPredicate);
+		}
+
+
 
 		return ptr - begin;
 	}
